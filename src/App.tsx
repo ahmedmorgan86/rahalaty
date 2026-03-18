@@ -16,17 +16,28 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        await loadProfile(session.user);
-      }
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Listen for auth changes
+    const init = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (session?.user) {
+          setUser(session.user);
+          await loadProfile(session.user);
+        }
+      } catch (e) {
+        console.error('Init error:', e);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    init();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
       if (session?.user) {
         setUser(session.user);
         await loadProfile(session.user);
@@ -34,9 +45,13 @@ export default function App() {
         setUser(null);
         setUserProfile(null);
       }
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadProfile = async (authUser: any) => {
@@ -44,20 +59,26 @@ export default function App() {
       const profile = await api.getUser(authUser.id);
       if (profile) {
         setUserProfile(profile);
-      } else {
-        const newProfile: UserProfile = {
-          uid: authUser.id,
-          email: authUser.email || '',
-          displayName: authUser.user_metadata?.displayName || authUser.email?.split('@')[0] || 'مسافر رحلتي',
-          role: 'user',
-          loyaltyPoints: 0,
-          createdAt: new Date().toISOString(),
-        };
-        await api.saveUser(newProfile);
-        setUserProfile(newProfile);
+        return;
       }
-    } catch (error) {
-      console.error('Error loading profile:', error);
+      // مفيش profile — عمله جديد
+      const newProfile: UserProfile = {
+        uid: authUser.id,
+        email: authUser.email || '',
+        displayName: authUser.user_metadata?.displayName || authUser.email?.split('@')[0] || 'مسافر رحلتي',
+        role: 'user',
+        loyaltyPoints: 0,
+        createdAt: new Date().toISOString(),
+      };
+      try {
+        await api.saveUser(newProfile);
+      } catch (e) {
+        console.warn('Could not save profile:', e);
+      }
+      setUserProfile(newProfile);
+    } catch (e) {
+      console.error('loadProfile error:', e);
+      // حتى لو فشل، مش هنوقف التطبيق
       setUserProfile({
         uid: authUser.id,
         email: authUser.email || '',
@@ -71,8 +92,9 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a]">
         <div className="w-12 h-12 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-stone-500 text-xs mt-4 font-bold uppercase tracking-widest">جاري التحميل...</p>
       </div>
     );
   }
