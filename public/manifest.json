@@ -1,0 +1,18 @@
+{
+  "name": "رحلاتي بريميوم",
+  "short_name": "رحلاتي",
+  "description": "منصة حجز أتوبيسات احترافية",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3448/3448339.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "dir": "rtl",
+  "lang": "ar"
+}
